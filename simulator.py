@@ -10,7 +10,6 @@ Output files:
     SJF.txt
 '''
 import sys
-import copy
 
 input_file = 'input.txt'
 
@@ -44,8 +43,7 @@ def _update_remaining_waiting_time(queue, time_elapsed):
     update remaining time and waiting time for all processes in the queue
     """
     current_process = {}
-    queue = copy.deepcopy(queue)
-    if queue:  # queue may be empty when the early processes have been completed
+    if queue:
         # update remaining time for first process
         current_process = queue[0]
         current_process["remaining_time"] -= time_elapsed
@@ -59,7 +57,6 @@ def _add_process_to_queue(process_list, next_process_idx, queue, current_time):
     """
     find processes that arrive in the passed time period and add to queue
     """
-    queue = copy.deepcopy(queue)
     checking = True
     while checking:
         if next_process_idx >= len(process_list):
@@ -67,7 +64,11 @@ def _add_process_to_queue(process_list, next_process_idx, queue, current_time):
         else:
             next_process = process_list[next_process_idx]
             if Process.last_switch_time < next_process.arrive_time <= current_time:
-                queue.append({"process": next_process, "remaining_time": next_process.burst_time, "waiting_time": current_time-next_process.arrive_time})
+                queue.append({
+                    "process": next_process, 
+                    "remaining_time": next_process.burst_time, 
+                    "waiting_time": current_time-next_process.arrive_time
+                })
                 next_process_idx += 1
             else:
                 checking = False
@@ -84,10 +85,7 @@ def RR_scheduling(process_list, time_quantum):
             current_remaing_time = queue[0]["remaining_time"]
             # quantum expires
             quantum_expiring_time = Process.last_switch_time + time_quantum - current_time
-            if current_remaing_time <= quantum_expiring_time:
-                return current_time + current_remaing_time
-            else:
-                return current_time + quantum_expiring_time
+            return current_time + min(current_remaing_time, quantum_expiring_time)
         else:
             return process_list[next_process_idx].arrive_time if next_process_idx < len(process_list) else -1
 
@@ -102,32 +100,26 @@ def RR_scheduling(process_list, time_quantum):
 
     schedules.append((0, p1.id))
     next_process_idx = 1
-    current_time = _next_important_time()
+    
     while queue or next_process_idx < len(process_list):
+        current_time = _next_important_time()
+        if current_time < 0:
+            break
         current_process, queue = _update_remaining_waiting_time(queue, current_time - Process.last_switch_time)
-        # check if incoming process during the past period, maybe multiple
         next_process_idx, queue = _add_process_to_queue(process_list, next_process_idx, queue, current_time)
         # reorder queue
         if current_process:
+            queue = queue[1:]
             if current_process["remaining_time"] > 0:  # the running one has not completed yet
-                if len(queue) > 1:
-                    queue = queue[1:]
-                    queue.append(current_process)
-                else:
-                    pass  # only one process remaining
+                queue.append(current_process)
             else:  # completed
-                queue = queue[1:] if len(queue) > 1 else []
                 completed.append(current_process)
         # update schedules
         if queue:
             schedules.append((current_time, queue[0]["process"].id))
         # update last_scheduled_time
         Process.last_switch_time = current_time
-        # update current_time
-        current_time = _next_important_time()
-        if current_time < 0:
-            break
-
+        
     Process.last_switch_time = 0
     total_waiting_time = sum([p["waiting_time"] for p in completed])
     return (schedules, total_waiting_time / float(len(completed)))
@@ -138,10 +130,7 @@ def SRTF_scheduling(process_list):
         if queue:
             current_remaing_time = queue[0]["remaining_time"]  # current one completes
             if next_process_idx < len(process_list):
-                if current_time + current_remaing_time <= process_list[next_process_idx].arrive_time:
-                    return current_time + current_remaing_time  # current completion time
-                else:
-                    return process_list[next_process_idx].arrive_time  # next process arrival time
+                return min(current_time + current_remaing_time, process_list[next_process_idx].arrive_time)
             else:
                 return current_time + current_remaing_time
         else:
@@ -158,33 +147,27 @@ def SRTF_scheduling(process_list):
 
     schedules.append((0, p1.id))
     next_process_idx = 1
-    current_time = _next_important_time()
+
     while queue or next_process_idx < len(process_list):
+        current_time = _next_important_time()
+        if current_time < 0:
+            break
         current_process, queue = _update_remaining_waiting_time(queue, current_time - Process.last_switch_time)
-        # check if incoming process during the past period, maybe multiple
         next_process_idx, queue = _add_process_to_queue(process_list, next_process_idx, queue, current_time)
         # reorder queue
-        if current_process:
-            if current_process["remaining_time"] > 0:  # the running one has not completed yet
-                queue = sorted(queue, key=lambda p: p["remaining_time"])
-            else:  # completed
-                queue = queue[1:] if len(queue) > 1 else []
-                completed.append(current_process)
+        if current_process and current_process["remaining_time"] <= 0:  # completed
+            queue = queue[1:]
+            completed.append(current_process)
+        queue = sorted(queue, key=lambda p: p["remaining_time"])
         # update schedules if process switches
         if (not current_process) or (queue and current_process["process"].id != queue[0]["process"].id):
             schedules.append((current_time, queue[0]["process"].id))
         # update last_scheduled_time
         Process.last_switch_time = current_time
-        # update current_time
-        current_time = _next_important_time()
-        if current_time < 0:
-            break
 
     Process.last_switch_time = 0
     total_waiting_time = sum([p["waiting_time"] for p in completed])
     return (schedules, total_waiting_time / float(len(completed)))
-
-    return (["to be completed, scheduling process_list on SRTF, using process.burst_time to calculate the remaining time of the current process "], 0.0)
 
 def SJF_scheduling(process_list, alpha):
     return (["to be completed, scheduling SJF without using information from process.burst_time"],0.0)
