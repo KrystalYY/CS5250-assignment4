@@ -170,7 +170,71 @@ def SRTF_scheduling(process_list):
     return (schedules, total_waiting_time / float(len(completed)))
 
 def SJF_scheduling(process_list, alpha):
-    return (["to be completed, scheduling SJF without using information from process.burst_time"],0.0)
+    INITIAL_GUESS = 5
+    def _next_important_time():
+        if queue:
+            return current_time + queue[0]["process"].burst_time
+        else:
+            return process_list[next_process_idx].arrive_time if next_process_idx < len(process_list) else -1
+    
+    schedules = []
+    queue = []  # always sort by priority_num, shortest comes first
+    completed = []
+    current_time = 0
+    predicted_next_burst = {}
+
+    # assumes there will always be a process at t=0
+    p1 = process_list[0]
+    queue.append({
+        "process": p1, 
+        "remaining_time": p1.burst_time,
+        "waiting_time": 0,
+        "priority_num": INITIAL_GUESS
+    })
+
+    schedules.append((0, p1.id))
+    next_process_idx = 1
+
+    while queue or next_process_idx < len(process_list):
+        current_time = _next_important_time()
+        if current_time < 0:
+            break
+        current_process, queue = _update_remaining_waiting_time(queue, current_time - Process.last_switch_time)
+        # insert processes that have arrived during the past time period
+        checking = True
+        while checking:
+            if next_process_idx >= len(process_list):
+                checking = False
+            else:
+                next_process = process_list[next_process_idx]
+                if Process.last_switch_time < next_process.arrive_time <= current_time:
+                    queue.append({
+                        "process": next_process,
+                        "remaining_time": next_process.burst_time,
+                        "waiting_time": current_time - next_process.arrive_time,
+                        "priority_num": predicted_next_burst.get(next_process.id, INITIAL_GUESS)
+                    })
+                    next_process_idx += 1
+                else:
+                    checking = False
+        # reorder queue
+        if current_process and current_process["remaining_time"] <= 0:  # completed
+            queue = queue[1:]
+            completed.append(current_process)
+            # update priority num
+            new_priority_num = int(0.5 * (predicted_next_burst.get(current_process["process"].id, INITIAL_GUESS) 
+                                          + current_process["process"].burst_time))
+            predicted_next_burst[current_process["process"].id] = new_priority_num
+        queue = sorted(queue, key=lambda p: p["priority_num"])
+        # update schedules
+        if queue:
+            schedules.append((current_time, queue[0]["process"].id))
+        # update last_scheduled_time
+        Process.last_switch_time = current_time
+
+    Process.last_switch_time = 0
+    total_waiting_time = sum([p["waiting_time"] for p in completed])
+    return (schedules, total_waiting_time / float(len(completed)))
 
 
 def read_input():
