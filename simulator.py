@@ -222,8 +222,8 @@ def SJF_scheduling(process_list, alpha):
             queue = queue[1:]
             completed.append(current_process)
             # update priority num
-            new_priority_num = int(0.5 * (predicted_next_burst.get(current_process["process"].id, INITIAL_GUESS) 
-                                          + current_process["process"].burst_time))
+            new_priority_num = int(alpha * current_process["process"].burst_time +
+                                  (1 - alpha) * predicted_next_burst.get(current_process["process"].id, INITIAL_GUESS))
             predicted_next_burst[current_process["process"].id] = new_priority_num
         queue = sorted(queue, key=lambda p: p["priority_num"])
         # update schedules
@@ -263,13 +263,13 @@ def main(argv):
     FCFS_schedule, FCFS_avg_waiting_time =  FCFS_scheduling(process_list)
     write_output('FCFS.txt', FCFS_schedule, FCFS_avg_waiting_time )
     print ("simulating RR ----")
-    RR_schedule, RR_avg_waiting_time =  RR_scheduling(process_list,time_quantum = 2)
+    RR_schedule, RR_avg_waiting_time =  RR_scheduling(process_list, time_quantum=2)
     write_output('RR.txt', RR_schedule, RR_avg_waiting_time )
     print ("simulating SRTF ----")
     SRTF_schedule, SRTF_avg_waiting_time =  SRTF_scheduling(process_list)
     write_output('SRTF.txt', SRTF_schedule, SRTF_avg_waiting_time )
     print ("simulating SJF ----")
-    SJF_schedule, SJF_avg_waiting_time =  SJF_scheduling(process_list, alpha = 0.5)
+    SJF_schedule, SJF_avg_waiting_time =  SJF_scheduling(process_list, alpha=0.5)
     write_output('SJF.txt', SJF_schedule, SJF_avg_waiting_time )
 
 if __name__ == '__main__':
