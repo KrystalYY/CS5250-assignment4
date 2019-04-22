@@ -222,8 +222,7 @@ def SJF_scheduling(process_list, alpha):
             queue = queue[1:]
             completed.append(current_process)
             # update priority num
-            new_priority_num = int(alpha * current_process["process"].burst_time +
-                                  (1 - alpha) * predicted_next_burst.get(current_process["process"].id, INITIAL_GUESS))
+            new_priority_num = alpha * current_process["process"].burst_time + (1 - alpha) * predicted_next_burst.get(current_process["process"].id, INITIAL_GUESS)
             predicted_next_burst[current_process["process"].id] = new_priority_num
         queue = sorted(queue, key=lambda p: p["priority_num"])
         # update schedules
@@ -271,6 +270,13 @@ def main(argv):
     print ("simulating SJF ----")
     SJF_schedule, SJF_avg_waiting_time =  SJF_scheduling(process_list, alpha=0.5)
     write_output('SJF.txt', SJF_schedule, SJF_avg_waiting_time )
+    for quantum in range(1, 51):
+        _, RR_avg_waiting_time =  RR_scheduling(process_list, quantum)
+        print(f'quantum: {quantum}, waiting_time: {RR_avg_waiting_time}')
+    for alpha in range(0, 100, 1):
+        alpha = alpha / 100.0
+        _, SJF_avg_waiting_time =  SJF_scheduling(process_list, alpha)
+        print(f'alpha: {alpha}, waiting_time: {SJF_avg_waiting_time}')
 
 if __name__ == '__main__':
     main(sys.argv[1:])
